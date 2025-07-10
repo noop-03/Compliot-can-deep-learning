@@ -89,7 +89,7 @@ def visualize(model):
 
     # 관측된 보드
     axs[0].imshow(masked, cmap='gray', vmin=-1, vmax=8)
-    axs[0].set_title("📘 관측된 상태")
+    axs[0].set_title("관측된 상태")
     for i in range(BOARD_SIZE):
         for j in range(BOARD_SIZE):
             if masked[i, j] != -1:
@@ -97,14 +97,14 @@ def visualize(model):
 
     # 예측 확률
     axs[1].imshow(pred, cmap='Reds')
-    axs[1].set_title("🤖 예측된 지뢰 확률")
+    axs[1].set_title("예측된 지뢰 확률")
     for i in range(BOARD_SIZE):
         for j in range(BOARD_SIZE):
             axs[1].text(j, i, f"{pred[i, j]:.2f}", ha='center', va='center', fontsize=8)
 
     # 실제 지뢰 위치
     axs[2].imshow((board == -1), cmap='binary')
-    axs[2].set_title("🎯 실제 지뢰 위치")
+    axs[2].set_title("실제 지뢰 위치")
 
     for ax in axs:
         ax.set_xticks([]); ax.set_yticks([])
