@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+plt.rc('font', family='Malgun Gothic')
+plt.rcParams['axes.unicode_minus'] = False #한글 폰트 깨짐 방지용
 import numpy as np
 import torch
 import torch.nn as nn
