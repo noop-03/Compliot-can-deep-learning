@@ -1,0 +1,176 @@
+ImprovedMathFormulaModel 클래스
+전체 모델의 래퍼 클래스로 데이터 처리, 모델 학습, 예측 기능을 통합
+주요 메서드:
+_build_vocab(): 공식 텍스트 데이터로부터 어휘 사전 생성
+_prepare_data(): 이미지 경로와 해당 공식 텍스트 매핑
+_setup_transforms(): 이미지 전처리 파이프라인 설정
+train(): 모델 학습 수행
+predict(): 학습된 모델로 새로운 이미지 예측
+EnhancedCNN 클래스
+이미지 특징 추출을 위한 개선된 CNN 인코더
+3개의 컨볼루션 블록으로 구성:
+64채널 3x3 컨볼루션 (BatchNorm + ReLU) x2 → MaxPool
+128채널로 확장 (동일 구조)
+256채널로 확장 (동일 구조) → (2,1) MaxPool
+최종적으로 512채널 특징 맵 출력
+EnhancedRNN 클래스
+어텐션 메커니즘을 포함한 LSTM 디코더
+각 시간 단계에서:
+입력 토큰 임베딩
+어텐션으로 관련 이미지 영역 강조
+LSTM으로 시퀀스 처리
+다음 토큰 예측
+Attention 클래스
+디코더가 인코더 출력의 어떤 부분에 집중할지 결정
+점수 계산: tanh(W1*encoder_out + W2*hidden)
+소프트맥스로 정규화된 어텐션 가중치 생성
+
+주요 개선 사항
+1) 모델 아키텍처 개선
+깊은 CNN 인코더: 3개의 컨볼루션 블록으로 이미지 특징 추출 능력 향상
+어텐션 메커니즘: 디코더가 인코더 출력의 관련 부분에 동적으로 집중
+BatchNorm과 Dropout: 모델 안정성과 일반화 성능 향상
+양방향 LSTM: 문맥 이해 능력 향상
+2) 학습 과정 최적화
+Teacher Forcing: 75% 확률로 실제 타겟 토큰 사용, 나머지는 모델 자체 출력 사용
+학습률 스케줄링: 성능 정체 시 학습률 자동 감소
+그래디언트 클리핑: 폭주하는 그래디언트 방지
+혼합 손실 계산: Teacher forcing 사용 시 전체 시퀀스, 미사용 시 단계별 손실
+3) 추론 기능 강화
+빔 서치(Beam Search): top-k 후보 유지하며 최적 시퀀스 탐색
+다양한 후보 평가: 로그 확률 기반 시퀀스 점수 매김
+EOS 토큰 처리: 문장 종료 신호 감지 시 조기 종료
+4) 데이터 전처리 강화
+고해상도 입력: 128x512 크기로 더 많은 세부 정보 보존
+콘트라스트 조정: 다양한 입력 조건에 강인한 모델 학습
+정규화: 픽셀 값을 [-1, 1] 범위로 조절
+
+데이터 흐름
+입력 이미지 전처리:
+그레이스케일 변환 → 크기 조정 → 콘트라스트 조정 → 텐서 변환 → 정규화
+인코딩 과정:
+CNN으로 이미지 특징 추출 → 공간 정보를 시퀀스로 변환 (HxWxC → LxD)
+디코딩 과정:
+어텐션으로 인코더 출력 가중합 → 현재 토큰 임베딩과 결합 → LSTM 처리 → 다음 토큰 예측
+학습 시:
+Teacher forcing으로 안정적 학습과 창의적 생성 균형
+교차 엔트로피 손실로 예측과 실제 공식 차이 최소화
+
+1. ImprovedMathFormulaModel 클래스 (메인 클래스)
+__init__()
+역할: 모델의 핵심 구성 요소 초기화
+
+상세 동작:
+
+데이터 경로 설정 (formula_path, image_root)
+
+GPU 사용 가능 여부 확인 (device 설정)
+
+어휘 사전 구축, 데이터 준비, 변환 설정, 모델 초기화, 옵티마이저 설정을 순차적으로 호출
+
+_build_vocab()
+역할: 수식 토큰 사전 생성
+
+상세 동작:
+
+공식 파일(formulas.lst)에서 모든 토큰 추출
+
+특수 토큰(<PAD>, <SOS>, <EOS>, <UNK>) 추가
+
+토큰-to-인덱스, 인덱스-to-토큰 매핑 생성
+
+python
+# 예시 출력
+vocab = ["<PAD>", "<SOS>", "x", "+", "y", ...]
+token_to_idx = {"<PAD>": 0, "<SOS>": 1, "x": 2, ...}
+_prepare_data()
+역할: 이미지-공식 매핑 데이터 생성
+
+상세 동작:
+
+각 이미지 파일명(00001 (1).png)과 해당 공식 토큰을 매칭
+
+공식 양쪽에 <SOS>, <EOS> 토큰 추가
+
+python
+# 데이터 예시
+[("00001 (1).png", ["<SOS>", "x", "+", "y", "<EOS>"]), ...]
+_setup_transforms()
+역할: 이미지 전처리 파이프라인 정의
+
+사용 기술:
+
+그레이스케일 변환 → 128x512 크기 조정 → 콘트라스트 증강 → 텐서 변환 → 정규화(mean=0.5, std=0.5)
+
+1. _initialize_models()
+역할: CNN 인코더와 RNN 디코더 초기화
+주요 과정:
+더미 입력으로 인코더 출력 차원 계산
+계산된 차원으로 디코더 초기화
+# 인코더 출력 예시: [batch, sequence_len, 512]
+train()
+역할: 모델 학습 실행
+핵심 로직:
+Teacher Forcing: 75% 확률로 실제 정답 토큰 사용
+자기 회귀 생성: 25% 확률로 모델의 이전 예측 사용
+그래디언트 클리핑(값 5.0): 그래디언트 폭주 방지
+# 손실 계산 예시
+loss = criterion(outputs.view(-1, vocab_size), targets.view(-1))
+predict()
+역할: 이미지로부터 수식 예측 (빔 서치 적용)
+빔 서치 동작:
+Top-k(beam_size=3) 후보 유지
+각 스텝에서 확률이 높은 시퀀스 확장
+<EOS> 토큰 생성 시 조기 종료
+# 예측 출력 예시: "x + y^2 = z"
+2. EnhancedCNN (CNN 인코더)
+__init__()
+구조: 3개 컨볼루션 블록 → AdaptiveAvgPool
+각 블록 구성:
+Conv2d → BatchNorm → ReLU → Conv2d → BatchNorm → ReLU → MaxPool
+출력: [batch, seq_len, 512] (이미지를 시퀀스로 변환)
+forward()
+동작 과정:
+컨볼루션 연산으로 특징 추출
+AdaptiveAvgPool로 높이 차원 제거
+[batch, channels, width] → [batch, width, channels]로 변환
+3. EnhancedRNN (어텐션 LSTM 디코더)
+__init__()
+주요 구성:
+임베딩 레이어(embedding_dim=256)
+어텐션 메커니즘
+2층 LSTM(hidden_dim=512)
+드롭아웃(dropout=0.3)
+forward()
+동작 순서:
+입력 토큰 임베딩
+어텐션으로 컨텍스트 벡터 생성
+임베딩 + 컨텍스트 → LSTM 입력
+출력 레이어로 다음 토큰 예측
+4. Attention (어텐션 메커니즘)
+forward()
+계산 과정:
+인코더 출력과 디코더 hidden state를 선형 변환
+tanh 활성화 후 점수 계산
+소프트맥스로 어텐션 가중치 생성
+attention_scores = softmax(tanh(W1*encoder_out + W2*hidden))
+5. 보조 기능
+MathFormulaDataset (Dataset 클래스)
+역할: 이미지-라벨 쌍 제공
+주요 동작:
+이미지 로드 → 전처리 적용
+토큰 시퀀스를 인덱스로 변환
+# 예시: ["<SOS>", "x", "+"] → [1, 2, 3]
+collate_fn()
+역할: 배치 패딩 처리
+동작:
+이미지: torch.stack으로 결합
+라벨: pad_sequence로 패딩 (패딩 값=0)
+6. 실행 흐름 예시
+# 1. 초기화
+model = ImprovedMathFormulaModel(formula_path, image_root)
+# 2. 학습 (데이터 로드 → 인코딩 → 디코딩 → 손실 계산 → 역전파)
+model.train(epochs=10)
+# 3. 예측 (이미지 전처리 → 빔 서치로 토큰 생성)
+pred = model.predict("test.png")
+각 컴포넌트는 모듈화되어 있어 독립적으로 수정/확장이 가능하며, 전체 시스템은 이미지로부터 수식 텍스트를 생성하는 E2E 파이프라인으로 동작한다.
