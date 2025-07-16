@@ -108,7 +108,7 @@ class ImprovedMineDetector(nn.Module):
         x = self.encoder(x)
         return self.decoder(x)
 
-# 학습 루프(개선) 에포치를 여기서 처리하는 거  batch size를 32로 지정하고 애포치를 30번 하니까 iteration이 30번인 거임 
+# 학습 루프(개선) 에포치를 여기서 처리하는 거  batch size를 32로 지정하고 애포치를 30번 하니까 iteration이 30*32번인 거임 
 def train(model, X, Y, epochs=20, lr=1e-3, batch_size=32):
     dataset = torch.utils.data.TensorDataset(X, Y)
     loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
